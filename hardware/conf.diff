@@ -1,0 +1,578 @@
+diff --color -burN ./base-conf/common/vivado.mk ./conf/common/vivado.mk
+--- ./base-conf/common/vivado.mk	2023-12-06 10:49:54.349706987 -0700
++++ ./conf/common/vivado.mk	2023-12-06 10:49:41.245489594 -0700
+@@ -100,15 +100,16 @@
+ %.runs/synth_1/%.dcp: %.xpr $(SYN_FILES_REL) $(INC_FILES_REL) $(XDC_FILES_REL)
+ 	echo "open_project $*.xpr" > run_synth.tcl
+ 	echo "reset_run synth_1" >> run_synth.tcl
+-	echo "launch_runs -jobs 4 synth_1" >> run_synth.tcl
++	echo "launch_runs -jobs 24 synth_1" >> run_synth.tcl
+ 	echo "wait_on_run synth_1" >> run_synth.tcl
+ 	vivado -nojournal -nolog -mode batch -source run_synth.tcl
+ 
+ # implementation run
+ %.runs/impl_1/%_routed.dcp: %.runs/synth_1/%.dcp
+ 	echo "open_project $*.xpr" > run_impl.tcl
++	echo "set_property strategy Performance_ExtraTimingOpt [get_runs impl_1]" >> run_impl.tcl
+ 	echo "reset_run impl_1" >> run_impl.tcl
+-	echo "launch_runs -jobs 4 impl_1" >> run_impl.tcl
++	echo "launch_runs -jobs 24 impl_1" >> run_impl.tcl
+ 	echo "wait_on_run impl_1" >> run_impl.tcl
+ 	vivado -nojournal -nolog -mode batch -source run_impl.tcl
+ 
+diff --color -burN ./base-conf/fpga/config.tcl ./conf/fpga/config.tcl
+--- ./base-conf/fpga/config.tcl	2023-12-06 10:49:54.349706987 -0700
++++ ./conf/fpga/config.tcl	2023-12-06 10:49:41.245489594 -0700
+@@ -81,7 +81,7 @@
+ dict set params RELEASE_INFO  [format "32'h%08x" $release_info]
+ 
+ # Structural configuration
+-dict set params IF_COUNT "2"
++dict set params IF_COUNT "1"
+ dict set params PORTS_PER_IF "1"
+ dict set params SCHED_PER_IF [dict get $params PORTS_PER_IF]
+ dict set params PORT_MASK "0"
+@@ -103,9 +103,12 @@
+ dict set params RX_QUEUE_OP_TABLE_SIZE "32"
+ dict set params TX_CPL_QUEUE_OP_TABLE_SIZE [dict get $params TX_QUEUE_OP_TABLE_SIZE]
+ dict set params RX_CPL_QUEUE_OP_TABLE_SIZE [dict get $params RX_QUEUE_OP_TABLE_SIZE]
++# dict set params EVENT_QUEUE_INDEX_WIDTH "6"
++# dict set params TX_QUEUE_INDEX_WIDTH "13"
++# dict set params RX_QUEUE_INDEX_WIDTH "8"
+ dict set params EVENT_QUEUE_INDEX_WIDTH "6"
+-dict set params TX_QUEUE_INDEX_WIDTH "13"
+-dict set params RX_QUEUE_INDEX_WIDTH "8"
++dict set params TX_QUEUE_INDEX_WIDTH "6"
++dict set params RX_QUEUE_INDEX_WIDTH "6"
+ dict set params TX_CPL_QUEUE_INDEX_WIDTH [dict get $params TX_QUEUE_INDEX_WIDTH]
+ dict set params RX_CPL_QUEUE_INDEX_WIDTH [dict get $params RX_QUEUE_INDEX_WIDTH]
+ dict set params EVENT_QUEUE_PIPELINE "3"
+@@ -114,6 +117,14 @@
+ dict set params TX_CPL_QUEUE_PIPELINE [dict get $params TX_QUEUE_PIPELINE]
+ dict set params RX_CPL_QUEUE_PIPELINE [dict get $params RX_QUEUE_PIPELINE]
+ 
++# QN-related params
++dict set params RETX_DESC_TABLE_SIZE "128"
++dict set params RX_CPL_DESC_TABLE_SIZE "1024"
++dict set params NUM_RSDS "4"
++dict set params CAM_CMP_DATA_WIDTH "64"
++dict set params CAM_RAM_ADDR_WIDTH "9"
++dict set params STASH_DEPTH "256"
++
+ # TX and RX engine configuration
+ dict set params TX_DESC_TABLE_SIZE "32"
+ dict set params RX_DESC_TABLE_SIZE "32"
+@@ -126,26 +137,33 @@
+ # Interface configuration
+ dict set params PTP_TS_ENABLE "1"
+ dict set params TX_CPL_FIFO_DEPTH "32"
+-dict set params TX_CHECKSUM_ENABLE "1"
+-dict set params RX_RSS_ENABLE "1"
+-dict set params RX_HASH_ENABLE "1"
+-dict set params RX_CHECKSUM_ENABLE "1"
++# dict set params TX_CHECKSUM_ENABLE "1"
++dict set params TX_CHECKSUM_ENABLE "0"
++# dict set params RX_RSS_ENABLE "1"
++dict set params RX_RSS_ENABLE "0"
++# dict set params RX_HASH_ENABLE "1"
++dict set params RX_HASH_ENABLE "0"
++dict set params RX_ROUTING_ENABLE "1"
++# dict set params RX_CHECKSUM_ENABLE "1"
++dict set params RX_CHECKSUM_ENABLE "0"
+ dict set params TX_FIFO_DEPTH "32768"
+ dict set params RX_FIFO_DEPTH "131072"
+-dict set params MAX_TX_SIZE "9214"
+-dict set params MAX_RX_SIZE "9214"
++# dict set params MAX_TX_SIZE "9214"
++# dict set params MAX_RX_SIZE "9214"
++dict set params MAX_TX_SIZE "2048"
++dict set params MAX_RX_SIZE "2048"
+ dict set params TX_RAM_SIZE "131072"
+ dict set params RX_RAM_SIZE "131072"
+  
+ # Application block configuration
+ dict set params APP_ID "32'h00000000"
+ dict set params APP_ENABLE "0"
+-dict set params APP_CTRL_ENABLE "1"
+-dict set params APP_DMA_ENABLE "1"
+-dict set params APP_AXIS_DIRECT_ENABLE "1"
+-dict set params APP_AXIS_SYNC_ENABLE "1"
+-dict set params APP_AXIS_IF_ENABLE "1"
+-dict set params APP_STAT_ENABLE "1"
++dict set params APP_CTRL_ENABLE "0"
++dict set params APP_DMA_ENABLE "0"
++dict set params APP_AXIS_DIRECT_ENABLE "0"
++dict set params APP_AXIS_SYNC_ENABLE "0"
++dict set params APP_AXIS_IF_ENABLE "0"
++dict set params APP_STAT_ENABLE "0"
+ 
+ # DMA interface configuration
+ dict set params DMA_IMM_ENABLE "0"
+@@ -181,9 +199,9 @@
+ dict set params AXIS_ETH_RX_FIFO_PIPELINE "4"
+ 
+ # Statistics counter subsystem
+-dict set params STAT_ENABLE "1"
+-dict set params STAT_DMA_ENABLE "1"
+-dict set params STAT_PCIE_ENABLE "1"
++dict set params STAT_ENABLE "0"
++dict set params STAT_DMA_ENABLE "0"
++dict set params STAT_PCIE_ENABLE "0"
+ dict set params STAT_INC_WIDTH "24"
+ dict set params STAT_ID_WIDTH "12"
+ 
+diff --color -burN ./base-conf/fpga/Makefile ./conf/fpga/Makefile
+--- ./base-conf/fpga/Makefile	2023-12-06 10:49:54.349706987 -0700
++++ ./conf/fpga/Makefile	2023-12-06 10:49:41.245489594 -0700
+@@ -107,6 +107,12 @@
+ SYN_FILES += lib/pcie/rtl/pcie_us_if_cq.v
+ SYN_FILES += lib/pcie/rtl/pcie_us_cfg.v
+ SYN_FILES += lib/pcie/rtl/pulse_merge.v
++# what we added
++SYN_FILES += rtl/common/retx.v
++SYN_FILES += rtl/common/rx_cpl.v
++SYN_FILES += rtl/common/ingress_filter.v
++SYN_FILES += rtl/common/two_q_arbiter.v
++SYN_FILES += lib/verilog-cam/rtl/cam_srl.v
+ 
+ # XDC files
+ XDC_FILES = fpga.xdc
+diff --color -burN ./base-conf/Makefile ./conf/Makefile
+--- ./base-conf/Makefile	2023-12-06 10:49:54.349706987 -0700
++++ ./conf/Makefile	2023-12-06 10:49:41.241489529 -0700
+@@ -1,25 +1,54 @@
+-# Targets
+-TARGETS:=
+-
+-# Subdirectories
+-SUBDIRS = fpga
+-SUBDIRS_CLEAN = $(patsubst %,%.clean,$(SUBDIRS))
+-
+-# Rules
+-.PHONY: all
+-all: $(SUBDIRS) $(TARGETS)
+-
+-.PHONY: $(SUBDIRS)
+-$(SUBDIRS):
+-	cd $@ && $(MAKE)
+-
+-.PHONY: $(SUBDIRS_CLEAN)
+-$(SUBDIRS_CLEAN):
+-	cd $(@:.clean=) && $(MAKE) clean
+-
+-.PHONY: clean
+-clean: $(SUBDIRS_CLEAN)
+-	-rm -rf $(TARGETS)
+-
+-program:
+-	#djtgcfg prog -d Atlys --index 0 --file fpga/fpga.bit
++# # Targets
++# TARGETS:=
++# 
++# # Subdirectories
++# SUBDIRS = fpga
++# SUBDIRS_CLEAN = $(patsubst %,%.clean,$(SUBDIRS))
++# 
++# # Rules
++# .PHONY: all
++# all: $(SUBDIRS) $(TARGETS)
++# 
++# .PHONY: $(SUBDIRS)
++# $(SUBDIRS):
++# 	cd $@ && $(MAKE)
++# 
++# .PHONY: $(SUBDIRS_CLEAN)
++# $(SUBDIRS_CLEAN):
++# 	cd $(@:.clean=) && $(MAKE) clean
++# 
++# .PHONY: clean
++# clean: $(SUBDIRS_CLEAN)
++# 	-rm -rf $(TARGETS)
++# 
++# program:
++# 	#djtgcfg prog -d Atlys --index 0 --file fpga/fpga.bit
++#
++#
++# JOBS=$(shell nproc)
++JOBS=8
++
++
++.PHONY: all project clean
++
++all: project run_synth run_impl
++	@echo "hh"
++gen_bit: run_synth run_impl
++	@echo "hhh"
++
++project:
++	vivado -mode batch -source tcl/create_project.tcl
++
++run_synth:
++	vivado -nojournal -nolog -mode batch -source tcl/run_synth.tcl -tclargs ${JOBS}
++
++run_impl:
++	vivado -nojournal -nolog -mode batch -source tcl/run_impl.tcl -tclargs ${JOBS}
++
++clean:
++	rm -rfv project_synth
++	rm -rfv vivado*
++	rm -rfv xvlog*
++	rm -rfv xsim.dir
++	rm -rfv tb/xvlog*
++	rm -rfv tb/xsim.dir
+diff --color -burN ./base-conf/Makefile.bak ./conf/Makefile.bak
+--- ./base-conf/Makefile.bak	1969-12-31 17:00:00.000000000 -0700
++++ ./conf/Makefile.bak	2023-12-06 10:49:41.241489529 -0700
+@@ -0,0 +1,25 @@
++# Targets
++TARGETS:=
++
++# Subdirectories
++SUBDIRS = fpga
++SUBDIRS_CLEAN = $(patsubst %,%.clean,$(SUBDIRS))
++
++# Rules
++.PHONY: all
++all: $(SUBDIRS) $(TARGETS)
++
++.PHONY: $(SUBDIRS)
++$(SUBDIRS):
++	cd $@ && $(MAKE)
++
++.PHONY: $(SUBDIRS_CLEAN)
++$(SUBDIRS_CLEAN):
++	cd $(@:.clean=) && $(MAKE) clean
++
++.PHONY: clean
++clean: $(SUBDIRS_CLEAN)
++	-rm -rf $(TARGETS)
++
++program:
++	#djtgcfg prog -d Atlys --index 0 --file fpga/fpga.bit
+diff --color -burN ./base-conf/rtl/fpga_core.v ./conf/rtl/fpga_core.v
+--- ./base-conf/rtl/fpga_core.v	2023-12-06 10:49:54.349706987 -0700
++++ ./conf/rtl/fpga_core.v	2023-12-06 10:49:41.245489594 -0700
+@@ -53,7 +53,7 @@
+     parameter RELEASE_INFO = 32'h00000000,
+ 
+     // Structural configuration
+-    parameter IF_COUNT = 2,
++    parameter IF_COUNT = 1,
+     parameter PORTS_PER_IF = 1,
+     parameter SCHED_PER_IF = PORTS_PER_IF,
+     parameter PORT_MASK = 0,
+@@ -181,7 +181,15 @@
+     parameter STAT_DMA_ENABLE = 1,
+     parameter STAT_PCIE_ENABLE = 1,
+     parameter STAT_INC_WIDTH = 24,
+-    parameter STAT_ID_WIDTH = 12
++    parameter STAT_ID_WIDTH = 12,
++
++    // QN Parameters
++    parameter RETX_DESC_TABLE_SIZE = 1024,
++    parameter RX_CPL_DESC_TABLE_SIZE = 1024,
++    parameter NUM_RSDS = 4,
++    parameter CAM_CMP_DATA_WIDTH = 64,
++    parameter CAM_RAM_ADDR_WIDTH = 9,
++    parameter STASH_DEPTH = 256
+ )
+ (
+     /*
+@@ -978,7 +986,14 @@
+     .STAT_DMA_ENABLE(STAT_DMA_ENABLE),
+     .STAT_PCIE_ENABLE(STAT_PCIE_ENABLE),
+     .STAT_INC_WIDTH(STAT_INC_WIDTH),
+-    .STAT_ID_WIDTH(STAT_ID_WIDTH)
++    .STAT_ID_WIDTH(STAT_ID_WIDTH),
++
++    .RETX_DESC_TABLE_SIZE(RETX_DESC_TABLE_SIZE),
++    .RX_CPL_DESC_TABLE_SIZE(RX_CPL_DESC_TABLE_SIZE),
++    .NUM_RSDS(NUM_RSDS),
++    .CAM_CMP_DATA_WIDTH(CAM_CMP_DATA_WIDTH),
++    .CAM_RAM_ADDR_WIDTH(CAM_RAM_ADDR_WIDTH),
++    .STASH_DEPTH(STASH_DEPTH)
+ )
+ core_inst (
+     .clk(clk_250mhz),
+diff --color -burN ./base-conf/rtl/fpga.v ./conf/rtl/fpga.v
+--- ./base-conf/rtl/fpga.v	2023-12-06 10:49:54.349706987 -0700
++++ ./conf/rtl/fpga.v	2023-12-06 10:49:41.245489594 -0700
+@@ -53,7 +53,7 @@
+     parameter RELEASE_INFO = 32'h00000000,
+ 
+     // Structural configuration
+-    parameter IF_COUNT = 2,
++    parameter IF_COUNT = 1,
+     parameter PORTS_PER_IF = 1,
+     parameter SCHED_PER_IF = PORTS_PER_IF,
+     parameter PORT_MASK = 0,
+@@ -112,12 +112,12 @@
+     // Application block configuration
+     parameter APP_ID = 32'h00000000,
+     parameter APP_ENABLE = 0,
+-    parameter APP_CTRL_ENABLE = 1,
+-    parameter APP_DMA_ENABLE = 1,
+-    parameter APP_AXIS_DIRECT_ENABLE = 1,
+-    parameter APP_AXIS_SYNC_ENABLE = 1,
+-    parameter APP_AXIS_IF_ENABLE = 1,
+-    parameter APP_STAT_ENABLE = 1,
++    parameter APP_CTRL_ENABLE = 0,
++    parameter APP_DMA_ENABLE = 0,
++    parameter APP_AXIS_DIRECT_ENABLE = 0,
++    parameter APP_AXIS_SYNC_ENABLE = 0,
++    parameter APP_AXIS_IF_ENABLE = 0,
++    parameter APP_STAT_ENABLE = 0,
+ 
+     // DMA interface configuration
+     parameter DMA_IMM_ENABLE = 0,
+@@ -170,7 +170,15 @@
+     parameter STAT_DMA_ENABLE = 1,
+     parameter STAT_PCIE_ENABLE = 1,
+     parameter STAT_INC_WIDTH = 24,
+-    parameter STAT_ID_WIDTH = 12
++    parameter STAT_ID_WIDTH = 12,
++
++    // QN Parameters
++    parameter RETX_DESC_TABLE_SIZE = 1024,
++    parameter RX_CPL_DESC_TABLE_SIZE = 1024,
++    parameter NUM_RSDS = 4,
++    parameter CAM_CMP_DATA_WIDTH = 64,
++    parameter CAM_RAM_ADDR_WIDTH = 9,
++    parameter STASH_DEPTH = 256
+ )
+ (
+     /*
+@@ -2029,7 +2037,15 @@
+     .STAT_DMA_ENABLE(STAT_DMA_ENABLE),
+     .STAT_PCIE_ENABLE(STAT_PCIE_ENABLE),
+     .STAT_INC_WIDTH(STAT_INC_WIDTH),
+-    .STAT_ID_WIDTH(STAT_ID_WIDTH)
++    .STAT_ID_WIDTH(STAT_ID_WIDTH),
++
++    //
++    .RETX_DESC_TABLE_SIZE(RETX_DESC_TABLE_SIZE),
++    .RX_CPL_DESC_TABLE_SIZE(RX_CPL_DESC_TABLE_SIZE),
++    .NUM_RSDS(NUM_RSDS),
++    .CAM_CMP_DATA_WIDTH(CAM_CMP_DATA_WIDTH),
++    .CAM_RAM_ADDR_WIDTH(CAM_RAM_ADDR_WIDTH),
++    .STASH_DEPTH(STASH_DEPTH)
+ )
+ core_inst (
+     /*
+diff --color -burN ./base-conf/run_cp.sh ./conf/run_cp.sh
+--- ./base-conf/run_cp.sh	1969-12-31 17:00:00.000000000 -0700
++++ ./conf/run_cp.sh	2023-12-06 10:49:41.241489529 -0700
+@@ -0,0 +1,4 @@
++#!/bin/bash
++
++cp project_synth/TProj.runs/impl_1/fpga.bit ~/synth-bitstreams/test.bit
++cp project_synth/TProj.runs/impl_1/fpga.ltx ~/synth-bitstreams/test.ltx
+diff --color -burN ./base-conf/tcl/create_project.tcl ./conf/tcl/create_project.tcl
+--- ./base-conf/tcl/create_project.tcl	1969-12-31 17:00:00.000000000 -0700
++++ ./conf/tcl/create_project.tcl	2023-12-06 10:49:41.241489529 -0700
+@@ -0,0 +1,169 @@
++##############################
++
++set design TProj
++set top fpga
++set device xcu250-figd2104-2-e
++set proj_dir ./project_synth
++set fpga_arch virtexuplus
++
++#############################
++# Source files
++set SYN_FILES [list rtl/fpga.v]
++lappend SYN_FILES rtl/fpga_core.v
++lappend SYN_FILES rtl/debounce_switch.v
++lappend SYN_FILES rtl/sync_signal.v
++lappend SYN_FILES rtl/common/mqnic_core_pcie_us.v
++lappend SYN_FILES rtl/common/mqnic_core_pcie.v
++lappend SYN_FILES rtl/common/mqnic_core.v
++lappend SYN_FILES rtl/common/mqnic_interface.v
++lappend SYN_FILES rtl/common/mqnic_interface_tx.v
++lappend SYN_FILES rtl/common/mqnic_interface_rx.v
++lappend SYN_FILES rtl/common/mqnic_port.v
++lappend SYN_FILES rtl/common/mqnic_port_tx.v
++lappend SYN_FILES rtl/common/mqnic_port_rx.v
++lappend SYN_FILES rtl/common/mqnic_egress.v
++lappend SYN_FILES rtl/common/axis_fifo_w_delays.v
++lappend SYN_FILES rtl/common/mqnic_ingress.v
++lappend SYN_FILES rtl/common/mqnic_ingress_top.v
++lappend SYN_FILES rtl/common/mqnic_l2_egress.v
++lappend SYN_FILES rtl/common/mqnic_l2_ingress.v
++lappend SYN_FILES rtl/common/mqnic_rx_queue_map.v
++lappend SYN_FILES rtl/common/mqnic_ptp.v
++lappend SYN_FILES rtl/common/mqnic_ptp_clock.v
++lappend SYN_FILES rtl/common/mqnic_ptp_perout.v
++lappend SYN_FILES rtl/common/mqnic_port_map_mac_axis.v
++lappend SYN_FILES rtl/common/cpl_write.v
++lappend SYN_FILES rtl/common/cpl_op_mux.v
++lappend SYN_FILES rtl/common/desc_fetch.v
++lappend SYN_FILES rtl/common/desc_op_mux.v
++lappend SYN_FILES rtl/common/event_mux.v
++lappend SYN_FILES rtl/common/queue_manager.v
++lappend SYN_FILES rtl/common/cpl_queue_manager.v
++lappend SYN_FILES rtl/common/tx_fifo.v
++lappend SYN_FILES rtl/common/rx_fifo.v
++lappend SYN_FILES rtl/common/tx_req_mux.v
++lappend SYN_FILES rtl/common/tx_engine.v
++lappend SYN_FILES rtl/common/rx_engine.v
++lappend SYN_FILES rtl/common/tx_checksum.v
++lappend SYN_FILES rtl/common/rx_hash.v
++lappend SYN_FILES rtl/common/rx_checksum.v
++lappend SYN_FILES rtl/common/stats_counter.v
++lappend SYN_FILES rtl/common/stats_collect.v
++lappend SYN_FILES rtl/common/stats_pcie_if.v
++lappend SYN_FILES rtl/common/stats_pcie_tlp.v
++lappend SYN_FILES rtl/common/stats_dma_if_pcie.v
++lappend SYN_FILES rtl/common/stats_dma_latency.v
++lappend SYN_FILES rtl/common/mqnic_tx_scheduler_block_rr.v
++lappend SYN_FILES rtl/common/tx_scheduler_rr.v
++lappend SYN_FILES rtl/common/cmac_pad.v
++lappend SYN_FILES rtl/common/mac_ts_insert.v
++lappend SYN_FILES lib/eth/rtl/ptp_clock.v
++lappend SYN_FILES lib/eth/rtl/ptp_clock_cdc.v
++lappend SYN_FILES lib/eth/rtl/ptp_perout.v
++lappend SYN_FILES lib/axi/rtl/axil_cdc.v
++lappend SYN_FILES lib/axi/rtl/axil_cdc_rd.v
++lappend SYN_FILES lib/axi/rtl/axil_cdc_wr.v
++lappend SYN_FILES lib/axi/rtl/axil_interconnect.v
++lappend SYN_FILES lib/axi/rtl/axil_crossbar.v
++lappend SYN_FILES lib/axi/rtl/axil_crossbar_addr.v
++lappend SYN_FILES lib/axi/rtl/axil_crossbar_rd.v
++lappend SYN_FILES lib/axi/rtl/axil_crossbar_wr.v
++lappend SYN_FILES lib/axi/rtl/axil_reg_if.v
++lappend SYN_FILES lib/axi/rtl/axil_reg_if_rd.v
++lappend SYN_FILES lib/axi/rtl/axil_reg_if_wr.v
++lappend SYN_FILES lib/axi/rtl/axil_register_rd.v
++lappend SYN_FILES lib/axi/rtl/axil_register_wr.v
++lappend SYN_FILES lib/axi/rtl/arbiter.v
++lappend SYN_FILES lib/axi/rtl/priority_encoder.v
++lappend SYN_FILES lib/axis/rtl/axis_adapter.v
++lappend SYN_FILES lib/axis/rtl/axis_arb_mux.v
++lappend SYN_FILES lib/axis/rtl/axis_async_fifo.v
++lappend SYN_FILES lib/axis/rtl/axis_async_fifo_adapter.v
++lappend SYN_FILES lib/axis/rtl/axis_demux.v
++lappend SYN_FILES lib/axis/rtl/axis_fifo.v
++lappend SYN_FILES lib/axis/rtl/axis_srl_fifo.v
++lappend SYN_FILES lib/axis/rtl/axis_fifo_adapter.v
++lappend SYN_FILES lib/axis/rtl/axis_pipeline_fifo.v
++lappend SYN_FILES lib/axis/rtl/axis_register.v
++lappend SYN_FILES lib/axis/rtl/sync_reset.v
++lappend SYN_FILES lib/pcie/rtl/pcie_axil_master.v
++lappend SYN_FILES lib/pcie/rtl/pcie_tlp_demux.v
++lappend SYN_FILES lib/pcie/rtl/pcie_tlp_demux_bar.v
++lappend SYN_FILES lib/pcie/rtl/pcie_tlp_mux.v
++lappend SYN_FILES lib/pcie/rtl/pcie_tlp_fifo.v
++lappend SYN_FILES lib/pcie/rtl/pcie_tlp_fifo_raw.v
++lappend SYN_FILES lib/pcie/rtl/pcie_msix.v
++lappend SYN_FILES lib/pcie/rtl/irq_rate_limit.v
++lappend SYN_FILES lib/pcie/rtl/dma_if_pcie.v
++lappend SYN_FILES lib/pcie/rtl/dma_if_pcie_rd.v
++lappend SYN_FILES lib/pcie/rtl/dma_if_pcie_wr.v
++lappend SYN_FILES lib/pcie/rtl/dma_if_mux.v
++lappend SYN_FILES lib/pcie/rtl/dma_if_mux_rd.v
++lappend SYN_FILES lib/pcie/rtl/dma_if_mux_wr.v
++lappend SYN_FILES lib/pcie/rtl/dma_if_desc_mux.v
++lappend SYN_FILES lib/pcie/rtl/dma_ram_demux_rd.v
++lappend SYN_FILES lib/pcie/rtl/dma_ram_demux_wr.v
++lappend SYN_FILES lib/pcie/rtl/dma_psdpram.v
++lappend SYN_FILES lib/pcie/rtl/dma_client_axis_sink.v
++lappend SYN_FILES lib/pcie/rtl/dma_client_axis_source.v
++lappend SYN_FILES lib/pcie/rtl/pcie_us_if.v
++lappend SYN_FILES lib/pcie/rtl/pcie_us_if_rc.v
++lappend SYN_FILES lib/pcie/rtl/pcie_us_if_rq.v
++lappend SYN_FILES lib/pcie/rtl/pcie_us_if_cc.v
++lappend SYN_FILES lib/pcie/rtl/pcie_us_if_cq.v
++lappend SYN_FILES lib/pcie/rtl/pcie_us_cfg.v
++lappend SYN_FILES lib/pcie/rtl/pulse_merge.v
++# what we added
++lappend SYN_FILES rtl/common/retx.v
++lappend SYN_FILES rtl/common/rx_cpl.v
++lappend SYN_FILES rtl/common/ingress_filter.v
++lappend SYN_FILES rtl/common/two_q_arbiter.v
++lappend SYN_FILES rtl/common/state_ram.v
++lappend SYN_FILES rtl/common/q_res_ram.v
++lappend SYN_FILES rtl/common/rx_routing.v
++lappend SYN_FILES rtl/common/memloader.v
++lappend SYN_FILES lib/verilog-cam/rtl/cam_srl.v
++#
++
++# XDC files
++set XDC_FILES [list fpga.xdc]
++lappend XDC_FILES placement.xdc
++lappend XDC_FILES cfgmclk.xdc
++lappend XDC_FILES boot.xdc
++lappend XDC_FILES lib/axi/syn/vivado/axil_cdc.tcl
++lappend XDC_FILES lib/axis/syn/vivado/axis_async_fifo.tcl
++lappend XDC_FILES lib/axis/syn/vivado/sync_reset.tcl
++lappend XDC_FILES lib/eth/syn/vivado/ptp_clock_cdc.tcl
++lappend XDC_FILES ../../../common/syn/vivado/mqnic_port.tcl
++lappend XDC_FILES ../../../common/syn/vivado/mqnic_ptp_clock.tcl
++
++# IP files
++set IP_TCL_FILES [list ip/pcie4_uscale_plus_0.tcl]
++lappend IP_TCL_FILES ip/cmac_usplus_0.tcl
++lappend IP_TCL_FILES ip/cmac_usplus_1.tcl
++lappend IP_TCL_FILES ip/cms.tcl
++
++# CONFIG_TCL_FILES
++set CONFIG_TCL_FILES [list fpga/config.tcl]
++
++#############################
++
++create_project -name ${design} -force -dir "${proj_dir}" -part ${device}
++
++foreach syn $SYN_FILES {
++	add_files -fileset sources_1 $syn
++}
++
++foreach xdc $XDC_FILES {
++	add_files -fileset constrs_1 $xdc
++}
++
++foreach ip_tcl $IP_TCL_FILES {
++	source $ip_tcl
++}
++
++foreach config_tcl $CONFIG_TCL_FILES {
++    source $config_tcl
++}
++
++exit
+diff --color -burN ./base-conf/tcl/run_impl.tcl ./conf/tcl/run_impl.tcl
+--- ./base-conf/tcl/run_impl.tcl	1969-12-31 17:00:00.000000000 -0700
++++ ./conf/tcl/run_impl.tcl	2023-12-06 10:49:41.241489529 -0700
+@@ -0,0 +1,19 @@
++set jobs [lindex $argv 0]
++
++open_project ./project_synth/TProj.xpr
++set_property strategy Performance_ExtraTimingOpt [get_runs impl_1]
++reset_run impl_1
++#set_property strategy Performance_Explore [get_runs impl_1]
++#set_property steps.phys_opt_design.is_enabled true [get_runs impl_1]
++#set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE Explore [get_runs impl_1]
++#set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
++#set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AlternateFlowWithRetiming [get_runs impl_1]
++#set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE ExploreWithHoldFix [get_runs impl_1]
++#set_property STEPS.PLACE_DESIGN.ARGS.DIRECTIVE Explore [get_runs impl_1]
++#set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.is_enabled true [get_runs impl_1]
++# set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE Explore [get_runs impl_1]
++#set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
++launch_runs impl_1 -to_step write_bitstream -jobs ${jobs}
++wait_on_run impl_1
++
++exit
+diff --color -burN ./base-conf/tcl/run_synth.tcl ./conf/tcl/run_synth.tcl
+--- ./base-conf/tcl/run_synth.tcl	1969-12-31 17:00:00.000000000 -0700
++++ ./conf/tcl/run_synth.tcl	2023-12-06 10:49:41.241489529 -0700
+@@ -0,0 +1,9 @@
++set jobs [lindex $argv 0]
++
++open_project ./project_synth/TProj.xpr
++reset_run synth_1
++update_compile_order -fileset sources_1
++launch_runs synth_1 -jobs ${jobs}
++wait_on_run synth_1
++
++exit
